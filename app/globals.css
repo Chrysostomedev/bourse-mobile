@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Bourse Pour Tous — Design tokens
+  NativeWind v4 / Tailwind CSS v4 (config CSS-first)
+  Usage: className="bg-primary text-ink font-heading"
+*/
+
+@theme {
+  /* Couleurs de marque */
+  --color-primary: #6B2FA0;
+  --color-primary-light: #8B3FC4;
+  --color-primary-dark: #4B1F73;
+
+  --color-coral: #F0562E;
+  --color-coral-light: #FF6F5E;
+  --color-coral-dark: #C8431F;
+
+  --color-ink: #1A1A2E;
+  --color-ink-soft: #4A4A63;
+
+  --color-background: #F8F7FC;
+  --color-surface: #FFFFFF;
+  --color-border: #E7E3F2;
+
+  --color-like: #2ECC71;
+  --color-alert: #E74C3C;
+  --color-gold: #F5B301;
+
+  /* Typographie */
+  --font-heading: "Sora";
+  --font-body: "Inter";
+
+  --text-display: 32px;
+  --text-title: 24px;
+  --text-subtitle: 18px;
+  --text-body: 15px;
+  --text-caption: 12px;
+
+  /* Rayons & ombres — cohérence "carte premium" dans toute l'app */
+  --radius-card: 20px;
+  --radius-pill: 999px;
+}
+
+/* Fallback web (Expo web) : variables CSS classiques pour composants
+   qui ne passent pas par les classes Tailwind (ex: SVG inline) */
+:root {
+  --bpt-primary: #6B2FA0;
+  --bpt-primary-light: #8B3FC4;
+  --bpt-coral: #F0562E;
+  --bpt-coral-light: #FF6F5E;
+  --bpt-ink: #1A1A2E;
+  --bpt-background: #F8F7FC;
+  --bpt-like: #2ECC71;
+  --bpt-gold: #F5B301;
+}
