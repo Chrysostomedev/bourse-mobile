@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -13,62 +13,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusScreen } from "@/components/ui/status-screen";
-import { getBourseById, Bourse } from "@/data/mock-bourses";
+import { useScholarship } from "@/hooks/useScholarship";
 import { colors, fonts, radius, shadow } from "@/lib/theme";
 
 export default function BourseDetailScreen() {
-  // -----------------------------------------------------------------
-  // useLocalSearchParams() lit le segment dynamique [id] de l'URL.
-  // Expo Router type ça en `string | string[]`, d'où le petit garde-fou
-  // ci-dessous (utile si jamais le paramètre arrive en tableau).
-  // -----------------------------------------------------------------
   const { id } = useLocalSearchParams<{ id: string }>();
-  const bourseId = Array.isArray(id) ? id[0] : id;
+  const slug = Array.isArray(id) ? id[0] : id;
 
-  // "status" représente les différents états possibles de l'écran :
-  // - "loading"  : en train de charger (skeleton affiché)
-  // - "ready"    : données chargées avec succès
-  // - "notFound" : id inconnu → réutilise StatusScreen code={404}
-  // - "error"    : panne serveur → StatusScreen code={500} (exemple)
-  const [status, setStatus] = useState<"loading" | "ready" | "notFound" | "error">(
-    "loading"
-  );
-  const [bourse, setBourse] = useState<Bourse | null>(null);
+  const { data: bourse, status, refetch } = useScholarship(slug);
   const [isSaved, setIsSaved] = useState(false);
 
-  useEffect(() => {
-    if (!bourseId) {
-      setStatus("notFound");
-      return;
-    }
-
-    // Ici on simule un fetch avec un petit délai. Dans la vraie appli :
-    //   try {
-    //     const data = await bourseService.getById(bourseId);
-    //     setBourse(data);
-    //     setStatus("ready");
-    //   } catch (err) {
-    //     // Si l'API renvoie 401/500/503, on peut directement mapper
-    //     // le code HTTP reçu sur <StatusScreen code={...} /> — pas besoin
-    //     // de créer un écran par code d'erreur, StatusScreen gère les 4.
-    //     setStatus("error");
-    //   }
-    const timeout = setTimeout(() => {
-      const found = getBourseById(bourseId);
-      if (found) {
-        setBourse(found);
-        setStatus("ready");
-      } else {
-        // Aucune bourse ne correspond à cet id : on retombe sur le
-        // même écran 404 que app/+not-found.tsx, pour rester cohérent.
-        setStatus("notFound");
-      }
-    }, 500);
-
-    return () => clearTimeout(timeout);
-  }, [bourseId]);
-
-  // ---------- État : identifiant invalide / bourse introuvable ----------
   if (status === "notFound") {
     return (
       <StatusScreen
@@ -81,27 +35,47 @@ export default function BourseDetailScreen() {
     );
   }
 
-  // ---------- État : erreur serveur (exemple d'utilisation du code 500) ----------
   if (status === "error") {
-    return <StatusScreen code={500} onPressAction={() => setStatus("loading")} />;
+    return (
+      <StatusScreen
+        code={500}
+        onPressAction={refetch}
+        actionLabel="Réessayer"
+      />
+    );
   }
 
-  // ---------- État : chargement ----------
   if (status === "loading" || !bourse) {
     return <DetailSkeleton />;
   }
 
-  // Nombre de jours restants avant la clôture — même logique que sur
-  // BourseCard, dupliquée volontairement ici (petit calcul, pas besoin
-  // d'un hook partagé pour si peu ; à extraire dans lib/dates.ts si ça
-  // se répète ailleurs).
-  const daysRemaining = Math.ceil(
-    (new Date(bourse.applicationEnd).getTime() - Date.now()) /
-      (1000 * 60 * 60 * 24)
-  );
+  // Prochaine intake (période de candidature)
+  const nextIntake = bourse.intakes
+    ?.filter((i) => i.period_end && new Date(i.period_end) > new Date())
+    ?.sort((a, b) => new Date(a.period_end!).getTime() - new Date(b.period_end!).getTime())[0];
+
+  const daysRemaining = nextIntake?.period_end
+    ? Math.ceil(
+        (new Date(nextIntake.period_end).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24)
+      )
+    : null;
+
+  // advantages peut être string ou array selon la base
+  const advantagesList: string[] = Array.isArray(bourse.advantages)
+    ? bourse.advantages
+    : typeof bourse.advantages === "string" && bourse.advantages.trim()
+    ? bourse.advantages.split("\n").filter(Boolean)
+    : [];
+
+  const levelLabel =
+    bourse.study_levels?.[0]?.name ?? "Tous niveaux";
+
+  const typeLabel =
+    bourse.scholarship_type?.name ?? bourse.funding_type ?? "Bourse";
 
   const handleOpenLink = () => {
-    if (bourse.link) Linking.openURL(bourse.link);
+    if (bourse.official_link) Linking.openURL(bourse.official_link);
   };
 
   return (
@@ -110,7 +84,6 @@ export default function BourseDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ---------- Bandeau supérieur : retour + favoris ---------- */}
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.roundButton}>
             <BackIcon />
@@ -123,86 +96,102 @@ export default function BourseDetailScreen() {
           </Pressable>
         </View>
 
-        {/* ---------- Bloc pays / drapeau ---------- */}
         <View style={styles.flagBanner}>
-          <Text style={styles.flagEmoji}>{bourse.countryFlag}</Text>
+          <Text style={styles.flagEmoji}>
+            {bourse.country?.flag_emoji ?? "🌍"}
+          </Text>
         </View>
 
         <View style={styles.content}>
-          {/* ---------- Tags (niveau, type, gratuité) ---------- */}
           <View style={styles.tagsRow}>
             <Badge label="Gratuit" tone="success" />
-            <Badge label={bourse.level} tone="primary" />
-            <Badge label={bourse.type} tone="neutral" />
+            <Badge label={levelLabel} tone="primary" />
+            <Badge label={typeLabel} tone="neutral" />
           </View>
 
           <Text style={styles.title}>{bourse.title}</Text>
-          <Text style={styles.organism}>{bourse.organism}</Text>
+          <Text style={styles.organism}>{bourse.organism_name}</Text>
 
-          {/* ---------- Carte échéance : période de candidature ---------- */}
-          <View style={styles.deadlineCard}>
-            <Text style={styles.deadlineLabel}>Période de candidature</Text>
-            <Text style={styles.deadlineDates}>
-              {formatDate(bourse.applicationStart)} → {formatDate(bourse.applicationEnd)}
-            </Text>
-            <Text
-              style={[
-                styles.deadlineCountdown,
-                daysRemaining <= 7 && { color: colors.alert },
-              ]}
-            >
-              {daysRemaining >= 0
-                ? `Clôture dans ${daysRemaining} jours`
-                : "Candidatures closes"}
-            </Text>
-          </View>
-
-          {/* ---------- Filières concernées ---------- */}
-          <Section title="Filières concernées">
-            <View style={styles.chipsWrap}>
-              {bourse.fields.map((field) => (
-                <Badge key={field} label={field} tone="primary" />
-              ))}
+          {/* Période de candidature */}
+          {nextIntake && (
+            <View style={styles.deadlineCard}>
+              <Text style={styles.deadlineLabel}>Période de candidature</Text>
+              <Text style={styles.deadlineDates}>
+                {formatDate(nextIntake.period_start)} →{" "}
+                {formatDate(nextIntake.period_end)}
+              </Text>
+              {daysRemaining !== null && (
+                <Text
+                  style={[
+                    styles.deadlineCountdown,
+                    daysRemaining <= 7 && { color: colors.alert },
+                  ]}
+                >
+                  {daysRemaining >= 0
+                    ? `Clôture dans ${daysRemaining} jours`
+                    : "Candidatures closes"}
+                </Text>
+              )}
             </View>
-          </Section>
+          )}
 
-          {/* ---------- Objectif de la bourse ---------- */}
-          <Section title="Objectif">
-            <Text style={styles.paragraph}>{bourse.objective}</Text>
-          </Section>
+          {/* Filières */}
+          {bourse.fields_of_study?.length > 0 && (
+            <Section title="Filières concernées">
+              <View style={styles.chipsWrap}>
+                {bourse.fields_of_study.map((field) => (
+                  <Badge key={field.id} label={field.name} tone="primary" />
+                ))}
+              </View>
+            </Section>
+          )}
 
-          {/* ---------- Conditions d'éligibilité ---------- */}
-          <Section title="Conditions">
-            <Text style={styles.paragraph}>{bourse.conditions}</Text>
-          </Section>
+          {bourse.objective && (
+            <Section title="Objectif">
+              <Text style={styles.paragraph}>{bourse.objective}</Text>
+            </Section>
+          )}
 
-          {/* ---------- Avantages, sous forme de liste à puces ---------- */}
-          <Section title="Avantages">
-            <View style={{ gap: 8 }}>
-              {bourse.advantages.map((advantage) => (
-                <View key={advantage} style={styles.bulletRow}>
-                  <View style={styles.bulletDot} />
-                  <Text style={styles.paragraph}>{advantage}</Text>
-                </View>
-              ))}
-            </View>
-          </Section>
+          {bourse.conditions && (
+            <Section title="Conditions">
+              <Text style={styles.paragraph}>{bourse.conditions}</Text>
+            </Section>
+          )}
 
-          {/* ---------- Infos complémentaires (optionnel) ---------- */}
-          {bourse.additionalInfo && (
+          {advantagesList.length > 0 && (
+            <Section title="Avantages">
+              <View style={{ gap: 8 }}>
+                {advantagesList.map((advantage, idx) => (
+                  <View key={idx} style={styles.bulletRow}>
+                    <View style={styles.bulletDot} />
+                    <Text style={styles.paragraph}>{advantage}</Text>
+                  </View>
+                ))}
+              </View>
+            </Section>
+          )}
+
+          {bourse.additional_info && (
             <Section title="Infos complémentaires">
-              <Text style={styles.paragraph}>{bourse.additionalInfo}</Text>
+              <Text style={styles.paragraph}>
+                {typeof bourse.additional_info === "string"
+                  ? bourse.additional_info
+                  : JSON.stringify(bourse.additional_info)}
+              </Text>
             </Section>
           )}
         </View>
       </ScrollView>
 
-      {/* ---------- CTA fixe en bas d'écran (au-dessus du scroll) ---------- */}
       <View style={styles.stickyFooter}>
         <Button
-          label={bourse.link ? "Voir les détails officiels" : "Lien indisponible"}
+          label={
+            bourse.official_link
+              ? "Voir les détails officiels"
+              : "Lien indisponible"
+          }
           onPress={handleOpenLink}
-          disabled={!bourse.link}
+          disabled={!bourse.official_link}
           fullWidth
         />
       </View>
@@ -210,8 +199,7 @@ export default function BourseDetailScreen() {
   );
 }
 
-/* ---------- Petits sous-composants locaux, propres à cet écran ---------- */
-
+/* --- sous-composants identiques à avant --- */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
@@ -262,13 +250,13 @@ function BookmarkIcon({ filled }: { filled: boolean }) {
   );
 }
 
-// Format simple JJ/MM/AAAA — suffisant ici ; passer par une lib type
-// dayjs si le formatage doit gérer plusieurs langues plus tard.
-function formatDate(iso: string) {
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return "—";
   const d = new Date(iso);
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
 
+// garde tes styles existants
 const styles = StyleSheet.create({
   screen: {
     flex: 1,

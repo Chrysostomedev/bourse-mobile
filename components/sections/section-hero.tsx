@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ImageBackground } from "react-native";
 import Svg, { Circle, Line } from "react-native-svg";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
@@ -22,8 +22,13 @@ export function SectionHero({
   activeBoursesCount,
   onPressExplore,
 }: SectionHeroProps) {
-  return (
-    <View style={styles.card}>
+return (
+    <ImageBackground
+      source={require("@/assets/img/hero-bg.jpg")}
+      style={styles.card}
+      imageStyle={styles.cardImage}
+      resizeMode="cover"
+    >
       <View style={styles.thread}>
         <Svg height="100%" width="100%" viewBox="0 0 340 130">
           <Line
@@ -60,8 +65,8 @@ export function SectionHero({
       <View style={styles.mascot}>
         <Logo size="lg" animated={false} color={colors.white} />
       </View>
-    </View>
-  );
+        </ImageBackground>
+);
 }
 
 const styles = StyleSheet.create({
@@ -86,6 +91,11 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: "rgba(255,255,255,0.75)",
   },
+
+cardImage: {
+  borderRadius: radius.card,
+},
+
   headline: {
     fontFamily: fonts.headingBold,
     fontSize: 20,

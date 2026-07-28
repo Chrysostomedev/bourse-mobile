@@ -1,36 +1,45 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Linking } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { getServiceById } from '@/data/mock-services';
-import { colors, fonts, radius, shadow } from '@/lib/theme';
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Linking,
+  ActivityIndicator,
+} from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Path, Circle, Rect } from "react-native-svg";
+import { useService } from "@/hooks/useService";
+import { colors, fonts, radius, shadow } from "@/lib/theme";
 
 function ServiceIcon({ name, color = colors.white }: { name: string; color?: string }) {
+  // ... garde exactement ton switch actuel
   switch (name) {
-    case 'briefcase':
+    case "briefcase":
       return (
         <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
           <Rect x="2" y="7" width="20" height="14" rx="2" stroke={color} strokeWidth={2} />
           <Path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke={color} strokeWidth={2} />
         </Svg>
       );
-    case 'video':
+    case "video":
       return (
         <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
           <Rect x="2" y="6" width="14" height="12" rx="2" stroke={color} strokeWidth={2} />
           <Path d="M22 8l-6 3v2l6 3V8z" stroke={color} strokeWidth={2} strokeLinejoin="round" />
         </Svg>
       );
-    case 'book':
+    case "book":
       return (
         <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
           <Path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2V3z" stroke={color} strokeWidth={2} />
           <Path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7V3z" stroke={color} strokeWidth={2} />
         </Svg>
       );
-    case 'document':
+    case "document":
       return (
         <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
           <Path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke={color} strokeWidth={2} />
@@ -49,11 +58,21 @@ function ServiceIcon({ name, color = colors.white }: { name: string; color?: str
 
 export default function ServiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const service = getServiceById(id);
+  const serviceId = Array.isArray(id) ? id[0] : id;
 
-  if (!service) {
+  const { data: service, status } = useService(serviceId);
+
+  if (status === "loading") {
     return (
-      <SafeAreaView style={styles.center} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.center} edges={["top", "bottom"]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (status === "notFound" || !service) {
+    return (
+      <SafeAreaView style={styles.center} edges={["top", "bottom"]}>
         <Text style={styles.errorText}>Service introuvable</Text>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>Retour</Text>
@@ -62,13 +81,33 @@ export default function ServiceDetailScreen() {
     );
   }
 
+  if (status === "error") {
+    return (
+      <SafeAreaView style={styles.center} edges={["top", "bottom"]}>
+        <Text style={styles.errorText}>Impossible de charger le service</Text>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>Retour</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  const priceLabel =
+    service.price == null
+      ? "Sur devis"
+      : typeof service.price === "number"
+      ? `${service.price.toLocaleString("fr-FR")} FCFA`
+      : String(service.price);
+
   const handleOrder = () => {
     const message = `Bonjour, je suis intéressé par le service : ${service.title}`;
-    Linking.openURL(`https://wa.me/2250700518251?text=${encodeURIComponent(message)}`);
+    Linking.openURL(
+      `https://wa.me/2250700518251?text=${encodeURIComponent(message)}`
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
         <LinearGradient
           colors={[colors.primaryLight, colors.primaryDark]}
@@ -77,20 +116,28 @@ export default function ServiceDetailScreen() {
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.iconButton}>
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                <Path d="M19 12H5M12 19l-7-7 7-7" stroke={colors.white} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                <Path
+                  d="M19 12H5M12 19l-7-7 7-7"
+                  stroke={colors.white}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </Svg>
             </Pressable>
           </View>
-          
+
           <View style={styles.heroContent}>
             <View style={styles.iconWrapper}>
-              <ServiceIcon name={service.icon} />
+              <ServiceIcon name={service.icon ?? "briefcase"} />
             </View>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{service.category}</Text>
+              <Text style={styles.badgeText}>
+                {service.category ?? service.kind}
+              </Text>
             </View>
             <Text style={styles.title}>{service.title}</Text>
-            <Text style={styles.price}>{service.price}</Text>
+            <Text style={styles.price}>{priceLabel}</Text>
           </View>
         </LinearGradient>
 
@@ -115,6 +162,7 @@ export default function ServiceDetailScreen() {
   );
 }
 
+// ---- garde tous tes styles existants ----
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },

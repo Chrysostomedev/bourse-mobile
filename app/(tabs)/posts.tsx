@@ -6,64 +6,53 @@ import { PostCard } from "@/components/cards/PostCard";
 import { mockPosts } from "@/data/mock-posts";
 import { colors, fonts, radius } from "@/lib/theme";
 
-const FILTERS = ["Tous", "Bourses", "Conseils", "Témoignages"];
+import { usePosts } from "@/hooks/usePosts";
+// ...
 
 export default function PostsScreen() {
   const [activeFilter, setActiveFilter] = useState("Tous");
+  const { data: posts, isLoading, error } = usePosts();
+
+  // Tu pourras filtrer plus tard par catégorie si tu ajoutes un champ
+  const filteredPosts = posts; // pour l'instant on affiche tout
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Communauté</Text>
-          <Text style={styles.subtitle}>12 847 membres</Text>
-        </View>
-      </View>
+      {/* header + filtres identiques */}
 
-      <View style={styles.filtersWrapper}>
+      {isLoading ? (
+        <View style={{ padding: 20 }}>
+          <Text style={{ color: colors.inkSoft }}>Chargement...</Text>
+        </View>
+      ) : (
         <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={FILTERS}
-          keyExtractor={(item) => item}
-          contentContainerStyle={styles.filters}
+          data={filteredPosts}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={{ padding: 40, alignItems: "center" }}>
+              <Text style={{ color: colors.inkSoft }}>
+                {error ?? "Aucune publication pour le moment"}
+              </Text>
+            </View>
+          }
           renderItem={({ item }) => (
-            <Pressable
-              style={[
-                styles.chip,
-                activeFilter === item && styles.chipActive
-              ]}
-              onPress={() => setActiveFilter(item)}
-            >
-              <Text style={[
-                styles.chipText,
-                activeFilter === item && styles.chipTextActive
-              ]}>{item}</Text>
-            </Pressable>
+            <PostCard
+              authorName={item.author?.name ?? "Admin"}
+              authorAvatarUri={item.author?.avatar_url ?? undefined}
+              isVerified={true}
+              timeAgo={item.published_at ?? item.created_at}
+              content={item.content}
+              imageUri={item.cover_image_url ?? undefined}
+              videoUri={item.video_url ?? undefined}
+              likeCount={item.likes_count ?? 0}
+              commentCount={item.comments_count ?? 0}
+              onPressComment={() => router.push(`/posts/${item.slug}`)}
+            />
           )}
         />
-      </View>
-
-      <FlatList
-        data={mockPosts}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <PostCard
-            authorName={item.authorName}
-            authorAvatarUri={item.authorAvatarUri}
-            isVerified={item.isVerified}
-            timeAgo={item.timeAgo}
-            content={item.content}
-            imageUri={item.imageUri}
-            videoUri={item.videoUri}
-            likeCount={item.likeCount}
-            commentCount={item.commentCount}
-            onPressComment={() => router.push(`/posts/${item.id}`)}
-          />
-        )}
-      />
+      )}
     </SafeAreaView>
   );
 }

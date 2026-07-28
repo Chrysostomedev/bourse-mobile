@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,13 +6,14 @@ import {
   Pressable,
   FlatList,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import Svg, { Circle, Path } from "react-native-svg";
 import { BourseCard } from "@/components/cards/BourseCard";
 import { BourseCardSkeleton } from "@/components/ui/skeleton";
-import { mockBourses, Bourse } from "@/data/mock-bourses";
+import { useScholarships } from "@/hooks/useScholarships";
 import { colors, fonts, radius } from "@/lib/theme";
 
 const LEVEL_FILTERS = ["Tous", "Licence", "Master", "Doctorat"] as const;
@@ -21,33 +22,29 @@ type LevelFilter = (typeof LEVEL_FILTERS)[number];
 export default function BoursesScreen() {
   const [query, setQuery] = useState("");
   const [activeLevel, setActiveLevel] = useState<LevelFilter>("Tous");
-  const [isLoading, setIsLoading] = useState(true);
-  const [bourses, setBourses] = useState<Bourse[]>([]);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setBourses(mockBourses);
-      setIsLoading(false);
-    }, 900);
-    return () => clearTimeout(timeout);
-  }, []);
+  // On charge tout, puis on filtre côté client pour le niveau (simple et rapide)
+  // Tu pourras plus tard passer study_level_id à l’API si tu veux
+  const { data: bourses, isLoading, error, refetch } = useScholarships();
 
   const filteredBourses = useMemo(() => {
     return bourses.filter((bourse) => {
       const matchesQuery =
         query.trim().length === 0 ||
         bourse.title.toLowerCase().includes(query.toLowerCase()) ||
-        bourse.organism.toLowerCase().includes(query.toLowerCase()) ||
-        bourse.countryName.toLowerCase().includes(query.toLowerCase());
+        bourse.organism_name.toLowerCase().includes(query.toLowerCase()) ||
+        (bourse.country?.name ?? "").toLowerCase().includes(query.toLowerCase());
+
       const matchesLevel =
-        activeLevel === "Tous" || bourse.level === activeLevel;
+        activeLevel === "Tous" || bourse.study_level === activeLevel;
+
       return matchesQuery && matchesLevel;
     });
   }, [bourses, query, activeLevel]);
 
   // Pair up items for 2-column grid
   const pairedBourses = useMemo(() => {
-    const pairs: (Bourse[])[] = [];
+    const pairs: (typeof filteredBourses)[] = [];
     for (let i = 0; i < filteredBourses.length; i += 2) {
       pairs.push(filteredBourses.slice(i, i + 2));
     }
@@ -70,6 +67,7 @@ export default function BoursesScreen() {
             placeholder="Rechercher un pays, un organisme..."
             placeholderTextColor={colors.inkSoft}
             style={styles.searchInput}
+            returnKeyType="search"
           />
         </View>
 
@@ -116,7 +114,9 @@ export default function BoursesScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>Aucune bourse trouvée</Text>
               <Text style={styles.emptyText}>
-                Essaie un autre mot-clé ou change de filtre de niveau.
+                {error
+                  ? "Impossible de charger les bourses. Réessaie plus tard."
+                  : "Essaie un autre mot-clé ou change de filtre de niveau."}
               </Text>
             </View>
           }
@@ -127,12 +127,18 @@ export default function BoursesScreen() {
                   key={bourse.id}
                   compact
                   title={bourse.title}
-                  organism={bourse.organism}
-                  countryFlag={bourse.countryFlag}
-                  countryName={bourse.countryName}
-                  level={bourse.level}
-                  deadline={new Date(bourse.applicationEnd)}
-                  onPress={() => router.push(`/bourse/${bourse.id}`)}
+                  organism={bourse.organism_name}
+                  countryFlag={bourse.country?.flag_emoji ?? "🌍"}
+                  countryName={bourse.country?.name ?? "Monde"}
+                  level={bourse.study_level ?? "Tous niveaux"}
+                  deadline={
+                    bourse.next_deadline
+                      ? new Date(bourse.next_deadline)
+                      : bourse.days_remaining != null
+                      ? new Date(Date.now() + bourse.days_remaining * 86400000)
+                      : new Date()
+                  }
+                 onPress={() => router.push(`/bourse/${bourse.slug}`)}
                 />
               ))}
               {pair.length === 1 && <View style={{ flex: 1 }} />}
@@ -143,6 +149,8 @@ export default function BoursesScreen() {
     </SafeAreaView>
   );
 }
+
+// ... garde tes styles identiques
 
 const styles = StyleSheet.create({
   screen: {
