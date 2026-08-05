@@ -5,7 +5,7 @@ import { SectionHeader } from "@/components/sections/section-header";
 import { colors, fonts } from "@/lib/theme";
 
 export type Partner = {
-  id: string;
+  id: number | string;
   name: string;
   logoUri?: string;
   hasNews?: boolean; // anneau coloré si le partenaire a une actu non lue

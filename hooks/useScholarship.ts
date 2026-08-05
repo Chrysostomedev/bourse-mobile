@@ -61,12 +61,12 @@ export function useScholarship(slug: string | undefined): UseScholarshipReturn {
 
     try {
       const res = await scholarshipService.getBySlug(slug);
-      setData(res as ScholarshipDetail);
+      setData(res as unknown as ScholarshipDetail);
       setStatus("ready");
     } catch (e) {
       const apiError = e as ApiError;
       // 404 → notFound, le reste → error
-      if (apiError?.status === 404) {
+      if (apiError?.statusCode === 404) {
         setStatus("notFound");
       } else {
         setError(apiError?.errorMessage ?? "Erreur de chargement");

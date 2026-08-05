@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,19 +11,24 @@ import Svg, {
   Path,
   Circle,
   Defs,
-  LinearGradient,
+  LinearGradient as SvgLinearGradient,
   Stop,
   Line,
 } from "react-native-svg";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, fonts, radius, shadow } from "@/lib/theme";
+import { NotificationsSheet, type NotificationItem } from "@/components/modals/NotificationsSheet";
 
 type NavBarProps = {
   firstName?: string;
   avatarUri?: string;
   notificationCount?: number;
+  notifications?: NotificationItem[];
   onPressSearch?: () => void;
   onPressNotifications?: () => void;
   onPressAvatar?: () => void;
+  onMarkAllNotificationsRead?: () => void;
+  onPressNotificationItem?: (item: NotificationItem) => void;
 };
 
 /**
@@ -35,17 +40,25 @@ type NavBarProps = {
  * communauté reliées entre elles. Le trait respire doucement
  * (opacité animée) plutôt que de scroller ou clignoter — discret,
  * jamais criard.
+ *
+ * Le même motif se prolonge verticalement dans le panneau de
+ * notifications (NotificationsSheet) : chaque alerte devient un
+ * nouveau nœud sur le fil.
  */
 export function NavBar({
   firstName = "étudiant(e)",
   avatarUri,
   notificationCount = 0,
+  notifications = [],
   onPressSearch,
   onPressNotifications,
   onPressAvatar,
+  onMarkAllNotificationsRead,
+  onPressNotificationItem,
 }: NavBarProps) {
   const breathe = useRef(new Animated.Value(0.35)).current;
   const badgePulse = useRef(new Animated.Value(1)).current;
+  const [notifSheetVisible, setNotifSheetVisible] = useState(false);
 
   useEffect(() => {
     Animated.loop(
@@ -86,6 +99,17 @@ export function NavBar({
     ).start();
   }, [notificationCount, badgePulse]);
 
+  const handlePressNotifications = () => {
+    // NotificationsSheet remplace l'ancien comportement de onPressNotifications
+    // (le toast "Tu as X nouvelles notifications"). On n'appelle donc plus
+    // ce prop ici pour éviter le doublon visuel. Si tu t'en servais pour
+    // autre chose qu'afficher ce toast (tracking, etc.), déplace cette
+    // logique dans onPressNotificationItem / onMarkAllNotificationsRead,
+    // ou rétablis l'appel ci-dessous une fois l'ancien toast retiré côté écran :
+    // onPressNotifications?.();
+    setNotifSheetVisible(true);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -96,24 +120,31 @@ export function NavBar({
         >
           <View style={styles.avatarRing}>
             <View style={styles.avatarInner}>
-              {avatarUri ? (
-                // eslint-disable-next-line jsx-a11y/alt-text
-                <Animated.Image
-                  source={{ uri: avatarUri }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <Text style={styles.avatarFallback}>
-                  {firstName.charAt(0).toUpperCase()}
-                </Text>
-              )}
+              <LinearGradient
+                colors={[colors.primary, colors.coral]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.avatarGradient}
+              >
+                {avatarUri ? (
+                  // eslint-disable-next-line jsx-a11y/alt-text
+                  <Animated.Image
+                    source={{ uri: avatarUri }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Text style={styles.avatarFallback}>
+                    {firstName.charAt(0).toUpperCase()}
+                  </Text>
+                )}
+              </LinearGradient>
             </View>
           </View>
           <View>
             <Text style={styles.greetingLabel}>
               {new Date().getHours() >= 18 || new Date().getHours() < 5 ? "Bonsoir" : "Bonjour"},
             </Text>
-            <Text style={styles.greetingName}>{firstName} 👋</Text>
+            <Text style={styles.greetingName}>{firstName} </Text>
           </View>
         </Pressable>
 
@@ -129,7 +160,7 @@ export function NavBar({
           </Pressable>
 
           <Pressable
-            onPress={onPressNotifications}
+            onPress={handlePressNotifications}
             style={({ pressed }) => [
               styles.iconButton,
               pressed && styles.iconButtonPressed,
@@ -156,10 +187,10 @@ export function NavBar({
       <Animated.View style={{ opacity: breathe }}>
         <Svg height="10" width="100%" viewBox="0 0 300 10">
           <Defs>
-            <LinearGradient id="threadGradient" x1="0" y1="0" x2="1" y2="0">
+            <SvgLinearGradient id="threadGradient" x1="0" y1="0" x2="1" y2="0">
               <Stop offset="0" stopColor={colors.primary} stopOpacity={1} />
               <Stop offset="1" stopColor={colors.coral} stopOpacity={1} />
-            </LinearGradient>
+            </SvgLinearGradient>
           </Defs>
           <Line
             x1="6"
@@ -176,6 +207,14 @@ export function NavBar({
           <Circle cx="294" cy="5" r="3" fill={colors.coral} />
         </Svg>
       </Animated.View>
+
+      <NotificationsSheet
+        visible={notifSheetVisible}
+        onClose={() => setNotifSheetVisible(false)}
+        notifications={notifications}
+        onMarkAllRead={onMarkAllNotificationsRead}
+        onPressItem={onPressNotificationItem}
+      />
     </View>
   );
 }
@@ -250,10 +289,15 @@ const styles = StyleSheet.create({
   avatarInner: {
     flex: 1,
     borderRadius: 20,
-    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  avatarGradient: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarImage: {
     width: "100%",

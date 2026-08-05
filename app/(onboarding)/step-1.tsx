@@ -16,6 +16,7 @@ export default function OnboardingStepOne() {
         illustration={<WelcomeIllustration />}
         title="Toutes les bourses, au même endroit."
         description="Fini les groupes WhatsApp et les pages douteuses. Chaque bourse est vérifiée avant d'arriver jusqu'à toi."
+        imageSource={require("@/assets/img/bourse (1).jpg")}
         onSkip={() => router.replace("/login/inscription")}
         onNext={() => router.push("/(onboarding)/step-2")}
       />

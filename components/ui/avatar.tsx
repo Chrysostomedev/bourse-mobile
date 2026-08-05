@@ -13,7 +13,7 @@ const SIZES: Record<AvatarSize, number> = {
 };
 
 type AvatarProps = {
-  uri?: string;
+  uri?: string | null;
   fallback?: string;
   size?: AvatarSize;
   ring?: "none" | "solid" | "gradient";
@@ -64,7 +64,7 @@ export function Avatar({
       >
         {uri ? (
           <Image
-            source={{ uri }}
+            source={{ uri: uri }}
             style={{ width: dimension, height: dimension }}
           />
         ) : (

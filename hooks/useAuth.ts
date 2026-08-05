@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
 import { authService } from "../services/auth.service";
 import { tokenStorage, userStorage } from "../core/storage";
+import { put as apiPut } from "../core/axios.mobile";
 import type { AuthResponse, LoginPayload, RegisterPayload, User } from "../types/auth.types";
 import { AxiosError } from "axios";
 
-type UseAuthReturn = {
+export type UseAuthReturn = {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -12,6 +13,7 @@ type UseAuthReturn = {
   login: (p: LoginPayload) => Promise<AuthResponse>;
   register: (p: RegisterPayload) => Promise<AuthResponse>;
   logout: () => Promise<void>;
+  updateProfile: (data: Partial<Pick<User, "name" | "email" | "bio">>) => Promise<void>;
   clearError: () => void;
 };
 
@@ -65,7 +67,7 @@ export function useAuth(): UseAuthReturn {
 
   const logout = useCallback(async () => {
     setIsLoading(true);
-    try { await authService.logout(); } catch {}
+    try { await authService.logout(); } catch { }
     finally {
       await tokenStorage.clearToken();
       await userStorage.clearUser();
@@ -74,5 +76,17 @@ export function useAuth(): UseAuthReturn {
     }
   }, []);
 
-  return { user, isAuthenticated:!!user, isLoading, error, login, register, logout, clearError: () => setError(null) };
+  const updateProfile = useCallback(async (data: Partial<Pick<User, "name" | "email" | "bio">>) => {
+    setIsLoading(true); setError(null);
+    try {
+      const updated = await apiPut<{ user: User }>("/auth/profile", data);
+      setUser(updated.user);
+      await userStorage.setUser(JSON.stringify(updated.user));
+    } catch (e) {
+      const msg = getErrorMessage(e);
+      setError(msg); throw new Error(msg);
+    } finally { setIsLoading(false); }
+  }, []);
+
+  return { user, isAuthenticated:!!user, isLoading, error, login, register, logout, updateProfile, clearError: () => setError(null) };
 }

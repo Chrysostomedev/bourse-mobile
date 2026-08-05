@@ -30,7 +30,7 @@
 
     // firstName : plus besoin de deviner data?.user?.name?.split(" ")[0] ?? user?.name...
   // user vient de la Resource, name est garanti non-null si user existe
-  const firstName = data?.user?.name?.split(" ")[0] ?? user?.name?.split(" ")[0] ?? "Kader";
+  const firstName = data?.user?.name?.split(" ")[0] ?? user?.name?.split(" ")[0] ?? "Boursier";
 
   const bourses = data?.featured && data.featured.length > 0 ? data.featured : mockBourses;
   const posts = data?.recentPosts && data.recentPosts.length > 0 ? data.recentPosts : mockPosts;

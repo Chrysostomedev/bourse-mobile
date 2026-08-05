@@ -28,6 +28,7 @@ export const colors = {
 
   like: "#2ECC71",
   alert: "#E74C3C",
+  danger: "#E74C3C",
   gold: "#F5B301",
 
   white: "#FFFFFF",
@@ -52,6 +53,7 @@ export const typeScale = {
 
 export const radius = {
   card: 20,
+  button: 12,
   pill: 999,
 } as const;
 

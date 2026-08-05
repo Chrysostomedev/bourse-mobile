@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
-import { View, Text, Pressable, Image, Animated, StyleSheet } from "react-native";
+import { View, Text, Pressable, Animated, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import Svg, { Path } from "react-native-svg";
 import { Badge } from "@/components/ui/badge";
 import { colors, fonts, radius, shadow } from "@/lib/theme";
@@ -11,7 +12,7 @@ export type BourseCardProps = {
   countryName: string;
   level: string;
   deadline: Date;
-  imageUri?: string;
+  coverImageUrl?: string | null;
   isSaved?: boolean;
   fullWidth?: boolean;
   compact?: boolean;
@@ -26,11 +27,6 @@ function daysLeft(deadline: Date) {
   return diff;
 }
 
-/**
- * BourseCard — carte principale du fil "Bourses". L'échéance est
- * affichée en clair ("Clôture dans 6 jours") plutôt qu'en simple date :
- * c'est l'info qui pousse réellement à l'action.
- */
 export function BourseCard({
   title,
   organism,
@@ -38,7 +34,7 @@ export function BourseCard({
   countryName,
   level,
   deadline,
-  imageUri,
+  coverImageUrl,
   isSaved = false,
   fullWidth = false,
   compact = false,
@@ -67,20 +63,39 @@ export function BourseCard({
   };
 
   return (
-    <Pressable onPress={onPress} style={[styles.card, fullWidth && styles.cardFull, compact && styles.cardCompact]}>
+    <Pressable 
+      onPress={onPress} 
+      style={[
+        styles.card, 
+        fullWidth && styles.cardFull, 
+        compact && styles.cardCompact
+      ]}
+    >
       <View style={styles.thumbWrap}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.thumb} />
+        {coverImageUrl ? (
+          <Image
+            source={{ uri: coverImageUrl }}
+            style={styles.thumb}
+            contentFit="cover"
+            placeholder="#F1E9FA"
+          />
         ) : (
           <View style={[styles.thumb, styles.thumbFallback]}>
             <Text style={styles.thumbFlag}>{countryFlag}</Text>
           </View>
         )}
+        
         <View style={styles.flagChip}>
           <Text style={styles.flagChipText}>
             {countryFlag} {countryName}
           </Text>
         </View>
+
+        {isUrgent && (
+          <View style={styles.urgentBadge}>
+            <Text style={styles.urgentText}>URGENT</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.body}>
@@ -92,15 +107,16 @@ export function BourseCard({
         <Text numberOfLines={2} style={styles.title}>
           {title}
         </Text>
+        
         <Text numberOfLines={1} style={styles.organism}>
-          {organism}
+          Par {organism}
         </Text>
 
         <View style={styles.footer}>
           <Text
             style={[
               styles.deadline,
-              isUrgent && { color: colors.alert },
+              isUrgent && styles.deadlineUrgent,
             ]}
           >
             {remaining >= 0
@@ -149,7 +165,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   thumbWrap: {
-    height: 110,
+    height: 130,
+    position: "relative",
   },
   thumb: {
     width: "100%",
@@ -161,21 +178,37 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   thumbFlag: {
-    fontSize: 34,
+    fontSize: 40,
   },
   flagChip: {
     position: "absolute",
     left: 10,
     bottom: 10,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "rgba(255,255,255,0.95)",
     borderRadius: radius.pill,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    ...shadow.card,
   },
   flagChipText: {
     fontFamily: fonts.headingSemiBold,
-    fontSize: 11,
+    fontSize: 12,
     color: colors.ink,
+  },
+  urgentBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "#FF3B30",
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  urgentText: {
+    fontFamily: fonts.headingBold,
+    fontSize: 9,
+    color: colors.white,
+    letterSpacing: 0.5,
   },
   body: {
     padding: 14,
@@ -206,6 +239,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     color: colors.primary,
+  },
+  deadlineUrgent: {
+    color: "#FF3B30",
+    fontFamily: fonts.headingBold,
   },
 });
 

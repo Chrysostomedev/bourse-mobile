@@ -1,4 +1,5 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
+import Constants from "expo-constants";
 import { tokenStorage } from "./storage";
 import { processApiError } from "./error";
 import { authEvents } from "./auth-events";
@@ -9,12 +10,30 @@ declare module "axios" {
   }
 }
 
-// EXPO_PUBLIC_API_URL doit pointer direct sur ton Laravel
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+// ── Résolution dynamique de l'URL API ──
+// 1. Si EXPO_PUBLIC_API_URL est défini dans .env → on l'utilise tel quel.
+// 2. Sinon, en dev (__DEV__), on extrait l'IP du serveur Metro depuis
+//    expo-constants (ex: "192.168.1.42:8081") et on construit l'URL API.
+// 3. En prod, on tombera sur le fallback (à adapter si besoin).
+function resolveBaseUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) return envUrl;
 
-if (!BASE_URL) {
-  console.warn("EXPO_PUBLIC_API_URL manquant dans .env");
+  if (__DEV__) {
+    const hostUri = Constants.expoConfig?.hostUri; // ex: "192.168.1.42:8081"
+    if (hostUri) {
+      const ip = hostUri.split(":")[0];
+      const url = `http://${ip}:8000/api/v1`;
+      console.log(`[API] URL auto-détectée via Metro: ${url}`);
+      return url;
+    }
+  }
+
+  console.warn("Impossible de résoudre l'URL API – ni .env ni Metro disponible");
+  return "http://localhost:8000/api/v1";
 }
+
+const BASE_URL = resolveBaseUrl();
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -28,10 +47,12 @@ const api = axios.create({
 
 // Routes publiques = pas de Bearer, d'après ton fichier routes public
 const PUBLIC_PATHS = [
-  "/login",
-  "/register",
-  "/password/request-reset",
-  "/password/reset",
+  "/auth/login",
+  "/auth/register",
+  "/auth/password/request-reset",
+  "/auth/password/reset",
+  "/auth/passkey/login-options",
+  "/auth/passkey/login",
 ];
 
 const isPublicRoute = (url?: string): boolean =>

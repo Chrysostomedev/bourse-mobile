@@ -15,7 +15,8 @@ export default function OnboardingStepThree() {
         totalSteps={4}
         illustration={<CommunityIllustration />}
         title="Like, commente, partage."
-        description="Suis les bourses qui t'intéressent et échange avec d'autres candidats. Une communauté de 12 000+ étudiants t'attend."
+        description="Crée ton réseau. Suis les bourses qui t'intéressent, pose tes questions et échange avec d'autres candidats."
+        imageSource={require("@/assets/img/bourse (3).jpg")}
         onSkip={() => router.replace("/login/inscription")}
         onNext={() => router.push("/(onboarding)/step-4")}
       />

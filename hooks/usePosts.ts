@@ -1,47 +1,56 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { postService, type Post } from "@/services/post.service";
-import type { ApiError } from "@/core/error";
 
-type UsePostsReturn = {
-  data: Post[];
-  isLoading: boolean;
-  isRefreshing: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
-};
-
-export function usePosts(): UsePostsReturn {
+export function usePosts(page = 1) {
   const [data, setData] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async (isRefetch = false) => {
-    if (isRefetch) setIsRefreshing(true);
-    else setIsLoading(true);
-    setError(null);
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const res = await postService.getAll(page);
+        setData(res.data);
+      } catch (err: any) {
+        setError(err.errorMessage ?? "Erreur lors du chargement des posts");
+        console.error("🔴 usePosts error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    try {
-      const res = await postService.getAll();
-      setData(res.data);
-    } catch (e) {
-      const apiError = e as ApiError;
-      setError(apiError?.errorMessage ?? "Impossible de charger les publications");
-    } finally {
-      if (isRefetch) setIsRefreshing(false);
-      else setIsLoading(false);
-    }
-  }, []);
+    fetchPosts();
+  }, [page]);
+
+  return { data, isLoading, error };
+}
+
+export function usePostBySlug(slug: string) {
+  const [data, setData] = useState<Post | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!slug) return;
 
-  return {
-    data,
-    isLoading,
-    isRefreshing,
-    error,
-    refetch: () => fetchData(true),
-  };
+    const fetchPost = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const post = await postService.getBySlug(slug);
+        setData(post);
+      } catch (err: any) {
+        setError(err.errorMessage ?? "Erreur lors du chargement du post");
+        console.error("🔴 usePostBySlug error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPost();
+  }, [slug]);
+
+  return { data, isLoading, error };
 }

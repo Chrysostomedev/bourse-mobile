@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, Animated, LayoutChangeEvent, Platfor
 import Svg, { Path, Circle } from "react-native-svg";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, fonts, radius, shadow } from "@/lib/theme";
 
 type TabKey = "index" | "posts" | "bourses" | "services" | "profil";
@@ -28,13 +29,27 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const pillX = useRef(new Animated.Value(0)).current;
   const pillWidth = useRef(new Animated.Value(64)).current;
 
+  // Un scale par onglet : permet à l'icône + label actifs de "rebondir"
+  // au moment de la sélection, sans toucher au calcul de layout existant.
+  const iconScales = useRef(state.routes.map(() => new Animated.Value(1))).current;
+
   const animateTo = (index: number) => {
     const layout = tabLayouts[index];
     if (!layout) return;
+
     Animated.parallel([
       Animated.spring(pillX, { toValue: layout.x, useNativeDriver: false, speed: 16, bounciness: 8 }),
       Animated.spring(pillWidth, { toValue: layout.width, useNativeDriver: false, speed: 16, bounciness: 8 }),
     ]).start();
+
+    // Petit "pop" sur l'icône fraîchement sélectionnée
+    iconScales[index]?.setValue(0.8);
+    Animated.spring(iconScales[index], {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 14,
+      bounciness: 14,
+    }).start();
   };
 
   const handleLayout = (index: number) => (e: LayoutChangeEvent) => {
@@ -53,7 +68,22 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   return (
     <View style={styles.wrapper}>
       <BlurView intensity={Platform.OS === 'ios' ? 40 : 100} tint="light" style={styles.bar}>
-        <Animated.View style={[styles.pill, { transform: [{ translateX: pillX }], width: pillWidth }]} />
+        {/* Halo doux derrière la pastille pour la détacher du fond */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.pillGlow, { transform: [{ translateX: pillX }], width: pillWidth }]}
+        />
+
+        <Animated.View style={[styles.pillShadowWrap, { transform: [{ translateX: pillX }], width: pillWidth }]}>
+          <LinearGradient
+            colors={[colors.primary, colors.coral]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.pill}
+          />
+          {/* Liseré haut pour un effet "gloss" discret */}
+          <View style={styles.pillSheen} />
+        </Animated.View>
 
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
@@ -80,7 +110,14 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   </Svg>
                 </View>
               )}
-              <View style={styles.iconSlot}>{icon}</View>
+              <Animated.View
+                style={[
+                  styles.iconSlot,
+                  isFocused && { transform: [{ scale: iconScales[index] }] },
+                ]}
+              >
+                {icon}
+              </Animated.View>
               {isFocused && <Text numberOfLines={1} style={styles.tabLabel}>{label}</Text>}
             </Pressable>
           );
@@ -156,13 +193,41 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 8,
   },
-  pill: {
+  // Halo flouté légèrement plus grand que la pastille : donne l'impression
+  // que l'onglet actif "sort" du bandeau au lieu d'être un simple fond plat.
+  pillGlow: {
     position: "absolute",
-    top: 8,
-    bottom: 8,
+    top: 2,
+    bottom: 2,
     left: 0,
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
+    opacity: 0.35,
+  },
+  pillShadowWrap: {
+    position: "absolute",
+    top: 4,
+    bottom: 4,
+    left: 0,
+    borderRadius: radius.pill,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  pill: {
+    flex: 1,
+    borderRadius: radius.pill,
+  },
+  pillSheen: {
+    position: "absolute",
+    top: 1,
+    left: 6,
+    right: 6,
+    height: "40%",
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
   tab: {
     flex: 1,
@@ -186,5 +251,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: fonts.headingSemiBold,
     fontSize: 12,
+    letterSpacing: 0.2,
   },
 });

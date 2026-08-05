@@ -15,7 +15,8 @@ export default function OnboardingStepTwo() {
         totalSteps={4}
         illustration={<ShieldIllustration />}
         title="On te protège des arnaques."
-        description="Une bourse ne se paie jamais. Si on te demande de l'argent quelque part, c'est une arnaque — et on te le signale direct."
+        description="Une bourse ne se paie jamais. Si on te demande de l'argent, c'est suspect. Notre équipe veille au grain."
+        imageSource={require("@/assets/img/bourse (2).jpg")}
         onSkip={() => router.replace("/login/inscription")}
         onNext={() => router.push("/(onboarding)/step-3")}
       />

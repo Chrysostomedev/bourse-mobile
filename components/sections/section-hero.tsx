@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ImageBackground } from "react-native";
 import Svg, { Circle, Line } from "react-native-svg";
 import { Button } from "@/components/ui/button";
@@ -11,20 +11,30 @@ type SectionHeroProps = {
   onPressExplore?: () => void;
 };
 
-/**
- * SectionHero — premier bloc de l'onglet Accueil. Pas de bannière photo
- * générique : la mascotte B (statique ici, pour ne pas concurrencer le
- * CTA) et un chiffre concret ("128 bourses ouvertes en ce moment")
- * plutôt qu'un slogan vague.
- */
+const CAROUSEL_IMAGES = [
+  require("@/assets/img/hero-bg.jpg"),
+  require("@/assets/img/bourse (1).jpg"),
+  require("@/assets/img/bourse (3).jpg"),
+  require("@/assets/img/bourse (5).jpg"),
+];
+
 export function SectionHero({
   studentFirstName,
   activeBoursesCount,
   onPressExplore,
 }: SectionHeroProps) {
-return (
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
     <ImageBackground
-      source={require("@/assets/img/hero-bg.jpg")}
+      source={CAROUSEL_IMAGES[currentImageIndex]}
       style={styles.card}
       imageStyle={styles.cardImage}
       resizeMode="cover"

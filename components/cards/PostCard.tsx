@@ -2,28 +2,34 @@ import React, { useRef, useState } from "react";
 import { View, Text, Pressable, Animated, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path, Circle } from "react-native-svg";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { colors, fonts, radius, shadow } from "@/lib/theme";
 
 export type PostCardProps = {
+  id?: number;
+  slug?: string;
   authorName: string;
   authorAvatarUri?: string;
   isVerified?: boolean;
   timeAgo: string;
   content: string;
-  imageUri?: any; // changed to any to accept require()
-  videoUri?: any; // changed to any to accept require()
+  imageUri?: any;
+  videoUri?: any;
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
-  onToggleLike?: (nextState: boolean) => void;
+  onToggleLike?: (postId: number, nextState: boolean) => Promise<void>;
   onPressComment?: () => void;
   onPressShare?: () => void;
+  onPressAuthor?: () => void;
+  isLoadingLike?: boolean;
 };
 
 export function PostCard({
+  id = 0,
+  slug = "",
   authorName,
   authorAvatarUri,
   isVerified = false,
@@ -37,8 +43,11 @@ export function PostCard({
   onToggleLike,
   onPressComment,
   onPressShare,
+  onPressAuthor,
+  isLoadingLike = false,
 }: PostCardProps) {
   const [liked, setLiked] = useState(isLiked);
+  const [displayLikeCount, setDisplayLikeCount] = useState(likeCount);
   const heartScale = useRef(new Animated.Value(1)).current;
 
   const videoSource = typeof videoUri === "string" ? { uri: videoUri } : videoUri;
@@ -46,10 +55,13 @@ export function PostCard({
     p.loop = true;
   });
 
-  const handleLike = () => {
+  const handleLike = async () => {
+    if (isLoadingLike || !onToggleLike) return;
+
     const next = !liked;
     setLiked(next);
-    onToggleLike?.(next);
+    setDisplayLikeCount((prev) => prev + (next ? 1 : -1));
+
     Animated.sequence([
       Animated.spring(heartScale, {
         toValue: 1.35,
@@ -63,23 +75,43 @@ export function PostCard({
         useNativeDriver: true,
       }),
     ]).start();
+
+    try {
+      await onToggleLike(id, next);
+    } catch (err) {
+      // Rollback on error
+      setLiked(!next);
+      setDisplayLikeCount((prev) => prev + (next ? -1 : 1));
+      console.error("❌ Like toggle failed:", err);
+    }
   };
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
+      {/* ── Header ── */}
+      <Pressable style={styles.header} onPress={onPressAuthor}>
         <Avatar uri={authorAvatarUri} fallback={authorName} size="sm" />
         <View style={styles.identity}>
           <View style={styles.nameRow}>
-            <Text style={styles.author}>{authorName}</Text>
-            {isVerified && <Badge label="Organisme" tone="primary" />}
+            <Text style={styles.author} numberOfLines={1}>
+              {authorName}
+            </Text>
+            {isVerified && (
+              <View style={styles.verifiedBadge}>
+                <VerifiedIcon />
+              </View>
+            )}
           </View>
           <Text style={styles.time}>{timeAgo}</Text>
         </View>
-      </View>
+      </Pressable>
 
-      <Text style={styles.content}>{content}</Text>
+      {/* ── Content ── */}
+      <Text style={styles.content} numberOfLines={5}>
+        {content}
+      </Text>
 
+      {/* ── Media ── */}
       {videoUri ? (
         <View style={styles.mediaWrap}>
           <VideoView
@@ -88,43 +120,95 @@ export function PostCard({
             nativeControls
             contentFit="cover"
           />
+          <PlayButton />
         </View>
       ) : imageUri ? (
         <View style={styles.mediaWrap}>
-          <Image 
-            source={typeof imageUri === "string" ? { uri: imageUri } : imageUri} 
-            style={styles.postMedia} 
-            contentFit="cover" 
+          <Image
+            source={
+              typeof imageUri === "string" ? { uri: imageUri } : imageUri
+            }
+            style={styles.postMedia}
+            contentFit="cover"
           />
         </View>
       ) : null}
 
+      {/* ── Stats ── */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statCount}>{displayLikeCount}</Text>
+          <Text style={styles.statLabel}>J'aime</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statCount}>{commentCount}</Text>
+          <Text style={styles.statLabel}>Commentaires</Text>
+        </View>
+      </View>
+
+      {/* ── Actions ── */}
       <View style={styles.actions}>
-        <Pressable onPress={handleLike} style={styles.actionItem} hitSlop={8}>
+        <Pressable
+          onPress={handleLike}
+          style={styles.actionItem}
+          hitSlop={8}
+          disabled={isLoadingLike}
+        >
           <Animated.View style={{ transform: [{ scale: heartScale }] }}>
             <HeartIcon filled={liked} />
           </Animated.View>
-          <Text style={styles.actionCount}>
-            {likeCount + (liked && !isLiked ? 1 : 0)}
+          <Text
+            style={[
+              styles.actionLabel,
+              liked && { color: colors.coral },
+            ]}
+          >
+            J'aime
           </Text>
         </Pressable>
 
-        <Pressable onPress={onPressComment} style={styles.actionItem} hitSlop={8}>
+        <Pressable
+          onPress={onPressComment}
+          style={styles.actionItem}
+          hitSlop={8}
+        >
           <CommentIcon />
-          <Text style={styles.actionCount}>{commentCount}</Text>
+          <Text style={styles.actionLabel}>Commenter</Text>
         </Pressable>
 
-        <Pressable onPress={onPressShare} style={styles.actionItem} hitSlop={8}>
+        <Pressable
+          onPress={onPressShare}
+          style={styles.actionItem}
+          hitSlop={8}
+        >
           <ShareIcon />
+          <Text style={styles.actionLabel}>Partager</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
+function VerifiedIcon() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill={colors.primary}>
+      <Circle cx="12" cy="12" r="10" />
+      <Path
+        d="M9 12l2 2 4-4"
+        stroke={colors.white}
+        strokeWidth="2.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
-    <Svg width={21} height={21} viewBox="0 0 24 24">
+    <Svg width={18} height={18} viewBox="0 0 24 24">
       <Path
         d="M12 20s-7-4.4-9.3-9C1.2 7.6 3 4 6.7 4c2 0 3.6 1.2 4.3 2.7C11.7 5.2 13.3 4 15.3 4 19 4 20.8 7.6 19.3 11 17 15.6 12 20 12 20Z"
         stroke={filled ? colors.coral : colors.inkSoft}
@@ -137,7 +221,7 @@ function HeartIcon({ filled }: { filled: boolean }) {
 
 function CommentIcon() {
   return (
-    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 5h16v11H9l-5 4Z"
         stroke={colors.inkSoft}
@@ -150,7 +234,7 @@ function CommentIcon() {
 
 function ShareIcon() {
   return (
-    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 12v7h16v-7M12 3v13M7 8l5-5 5 5"
         stroke={colors.inkSoft}
@@ -162,18 +246,29 @@ function ShareIcon() {
   );
 }
 
+function PlayButton() {
+  return (
+    <View style={styles.playButton}>
+      <Svg width={48} height={48} viewBox="0 0 24 24" fill={colors.white}>
+        <Path d="M5 3l14 9-14 9V3z" />
+      </Svg>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,
-    padding: 16,
-    gap: 12,
+    overflow: "hidden",
     ...shadow.card,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    padding: 16,
+    paddingBottom: 12,
   },
   identity: { flex: 1 },
   nameRow: {
@@ -185,46 +280,95 @@ const styles = StyleSheet.create({
     fontFamily: fonts.headingSemiBold,
     fontSize: 14.5,
     color: colors.ink,
+    flex: 1,
+  },
+  verifiedBadge: {
+    width: 16,
+    height: 16,
   },
   time: {
     fontFamily: fonts.body,
     fontSize: 11.5,
     color: colors.inkSoft,
-    marginTop: 1,
+    marginTop: 3,
   },
   content: {
     fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20,
     color: colors.ink,
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   mediaWrap: {
     width: "100%",
-    height: 200,
-    borderRadius: 14,
-    overflow: "hidden",
+    height: 240,
     backgroundColor: colors.border,
+    position: "relative",
+    overflow: "hidden",
   },
   postMedia: {
     width: "100%",
     height: "100%",
   },
-  actions: {
-    flexDirection: "row",
-    gap: 22,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  playButton: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginTop: -24,
+    marginLeft: -24,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  actionItem: {
+  statsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  actionCount: {
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statCount: {
+    fontFamily: fonts.headingSemiBold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  statLabel: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: colors.inkSoft,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: colors.border,
+  },
+  actions: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  actionItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: radius.button,
+    marginHorizontal: 4,
+  },
+  actionLabel: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.inkSoft,
   },
 });

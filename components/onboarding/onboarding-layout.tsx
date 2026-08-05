@@ -12,6 +12,7 @@ type OnboardingLayoutProps = {
   title: string;
   description: string;
   isLast?: boolean;
+  imageSource?: any; // To pass a required image, e.g. require('@/assets/img/bourse (1).jpg')
   onSkip?: () => void;
   onNext?: () => void;
 };
@@ -23,6 +24,7 @@ export function OnboardingLayout({
   title,
   description,
   isLast = false,
+  imageSource,
   onSkip,
   onNext,
 }: OnboardingLayoutProps) {
@@ -31,6 +33,7 @@ export function OnboardingLayout({
   const slideAnim = useRef(new Animated.Value(60)).current;
   const illuScale = useRef(new Animated.Value(0.85)).current;
   const logoFade = useRef(new Animated.Value(0)).current;
+  const imageFade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Run animations on mount
@@ -56,6 +59,12 @@ export function OnboardingLayout({
         toValue: 1,
         duration: 600,
         delay: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(imageFade, {
+        toValue: 1,
+        duration: 700,
+        delay: 300,
         useNativeDriver: true,
       }),
     ]).start();
@@ -94,6 +103,14 @@ export function OnboardingLayout({
 
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.description}>{description}</Text>
+
+        {imageSource && (
+          <Animated.Image 
+            source={imageSource} 
+            style={[styles.bottomImage, { opacity: imageFade }]} 
+            resizeMode="cover"
+          />
+        )}
 
         <Pressable style={styles.cta} onPress={onNext}>
           <Text style={styles.ctaText}>
@@ -215,6 +232,12 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     textAlign: "center",
     maxWidth: width * 0.85,
+  },
+  bottomImage: {
+    width: "100%",
+    height: 120,
+    borderRadius: 16,
+    marginTop: 20,
   },
   cta: {
     marginTop: "auto",

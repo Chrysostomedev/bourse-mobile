@@ -15,7 +15,8 @@ export default function OnboardingStepFour() {
         totalSteps={4}
         illustration={<CoachingIllustration />}
         title="Un dossier béton, ça s'apprend."
-        description="Formations, coaching et e-books pour mettre toutes les chances de ton côté. Des experts à tes côtés à chaque étape."
+        description="Formations, coaching personnalisé et e-books. On te donne toutes les clés pour décrocher la bourse de tes rêves."
+        imageSource={require("@/assets/img/bourse (4).jpg")}
         isLast
         onSkip={() => router.replace("/login/inscription")}
         onNext={() => router.replace("/login/inscription")}

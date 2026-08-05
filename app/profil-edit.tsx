@@ -1,252 +1,387 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, fonts, radius } from '@/lib/theme';
-
-const ArrowLeftIcon = ({ size = 24, color = colors.ink }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M19 12H5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M12 19L5 12L12 5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
-const CameraIcon = ({ size = 16, color = colors.white }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 3H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    <Circle cx="12" cy="13" r="4" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
-const ChevronDownIcon = ({ size = 20, color = colors.ink }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M6 9L12 15L18 9" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import Svg, { Path, Circle } from "react-native-svg";
+import { colors, fonts, radius } from "@/lib/theme";
+import { Toast } from "@/core/toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ProfilEditScreen() {
   const router = useRouter();
-  const [name, setName] = useState('Kader Touré');
-  const [email, setEmail] = useState('kader.toure@gmail.com');
-  const [country, setCountry] = useState("Côte d'Ivoire");
-  const [bio, setBio] = useState('Futur ingénieur');
+  const { user, updateProfile } = useAuth();
 
-  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [name, setName] = useState(user?.name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [bio, setBio] = useState(user?.bio ?? "");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const renderInput = (label: string, value: string, setValue: (val: string) => void, placeholder: string, multiline = false, id: string) => {
-    const isFocused = focusedInput === id;
-    return (
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        <TextInput
-          style={[
-            styles.textInput,
-            multiline && styles.textInputMultiline,
-            isFocused && styles.textInputFocused
-          ]}
-          value={value}
-          onChangeText={setValue}
-          placeholder={placeholder}
-          placeholderTextColor={colors.inkSoft}
-          onFocus={() => setFocusedInput(id)}
-          onBlur={() => setFocusedInput(null)}
-          multiline={multiline}
-          textAlignVertical={multiline ? 'top' : 'center'}
-        />
-      </View>
-    );
+  const handleSave = async () => {
+    if (!name.trim()) {
+      Toast.error("Le nom est requis", "Erreur");
+      return;
+    }
+
+    if (!email.trim() || !email.includes("@")) {
+      Toast.error("Entrez un email valide", "Erreur");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await updateProfile({
+        name: name.trim(),
+        email: email.trim(),
+        bio: bio.trim(),
+      });
+      Toast.success("Profil mis à jour avec succès !", "Succès");
+      router.back();
+    } catch (error: any) {
+      Toast.error(
+        error.errorMessage ?? "Impossible de mettre à jour le profil",
+        "Erreur"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (
+      name !== user?.name ||
+      email !== user?.email ||
+      bio !== (user?.bio ?? "")
+    ) {
+      Alert.alert(
+        "Abandon",
+        "Vous avez des modifications non sauvegardées. Continuer ?",
+        [
+          { text: "Continuer", onPress: () => router.back() },
+          { text: "Annuler", style: "cancel" },
+        ]
+      );
+    } else {
+      router.back();
+    }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <SafeAreaView style={styles.screen} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={handleCancel} hitSlop={8}>
+          <BackIcon />
+        </Pressable>
+        <Text style={styles.headerTitle}>Modifier le profil</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeftIcon size={24} color={colors.ink} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Modifier le profil</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
-          {/* Avatar */}
-          <View style={styles.avatarSection}>
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>KT</Text>
-              </View>
-              <Pressable style={styles.avatarEditButton}>
-                <CameraIcon size={16} />
-              </Pressable>
-            </View>
+        {/* Avatar */}
+        <View style={styles.avatarSection}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarInitials}>
+              {name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2)}
+            </Text>
           </View>
-
-          {/* Form */}
-          <View style={styles.formContainer}>
-            {renderInput('Nom complet', name, setName, 'Entrez votre nom', false, 'name')}
-            {renderInput('E-mail', email, setEmail, 'Entrez votre e-mail', false, 'email')}
-            {renderInput('Pays', country, setCountry, 'Entrez votre pays', false, 'country')}
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Niveau d'études</Text>
-              <Pressable style={styles.selectInput}>
-                <Text style={styles.selectInputText}>Master</Text>
-                <ChevronDownIcon size={20} color={colors.inkSoft} />
-              </Pressable>
-            </View>
-
-            {renderInput('Bio', bio, setBio, 'Parlez un peu de vous...', true, 'bio')}
-          </View>
-        </ScrollView>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Pressable style={styles.saveButton} onPress={() => router.back()}>
-            <Text style={styles.saveButtonText}>Sauvegarder</Text>
+          <Pressable style={styles.changePhotoButton}>
+            <CameraIcon />
+            <Text style={styles.changePhotoText}>Changer la photo</Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+
+        {/* Form Fields */}
+        <View style={styles.form}>
+          {/* Name */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Nom complet</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Votre nom"
+              value={name}
+              onChangeText={setName}
+              editable={!isLoading}
+              placeholderTextColor={colors.inkSoft}
+            />
+          </View>
+
+          {/* Email */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="votre.email@exemple.com"
+              value={email}
+              onChangeText={setEmail}
+              editable={!isLoading}
+              keyboardType="email-address"
+              placeholderTextColor={colors.inkSoft}
+            />
+          </View>
+
+          {/* Bio */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Bio (optionnel)</Text>
+            <TextInput
+              style={[styles.input, styles.bioInput]}
+              placeholder="Dites quelque chose sur vous..."
+              value={bio}
+              onChangeText={setBio}
+              editable={!isLoading}
+              multiline
+              numberOfLines={3}
+              maxLength={150}
+              placeholderTextColor={colors.inkSoft}
+            />
+            <Text style={styles.charCount}>
+              {bio.length}/150
+            </Text>
+          </View>
+
+          {/* Info Box */}
+          <View style={styles.infoBox}>
+            <InfoIcon />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoTitle}>Données de compte</Text>
+              <Text style={styles.infoText}>
+                Votre email est utilisé pour se connecter et recevoir les
+                notifications.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Buttons */}
+        <View style={styles.actions}>
+          <Pressable
+            style={[styles.button, styles.cancelButton]}
+            onPress={handleCancel}
+            disabled={isLoading}
+          >
+            <Text style={styles.cancelButtonText}>Annuler</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.button, styles.saveButton, isLoading && styles.buttonDisabled]}
+            onPress={handleSave}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={styles.saveButtonText}>Enregistrer les modifications</Text>
+            )}
+          </Pressable>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+function BackIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18l-6-6 6-6"
+        stroke={colors.ink}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+        stroke={colors.primary}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="13" r="4" stroke={colors.primary} strokeWidth={2} />
+    </Svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={colors.primary} strokeWidth={2} />
+      <Path
+        d="M12 16v-4M12 8h.01"
+        stroke={colors.primary}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+
+
 const styles = StyleSheet.create({
-  safeArea: {
+  screen: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  keyboardView: {
-    flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: colors.surface,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontFamily: fonts.headingSemiBold,
     fontSize: 18,
     color: colors.ink,
   },
-  scrollContent: {
-    flex: 1,
-  },
-  scrollContentContainer: {
-    padding: 20,
+  content: {
+    paddingHorizontal: 20,
+    paddingVertical: 24,
     paddingBottom: 40,
   },
   avatarSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
-    marginTop: 12,
-  },
-  avatarContainer: {
-    position: 'relative',
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
-  avatarText: {
+  avatarInitials: {
     fontFamily: fonts.headingBold,
-    fontSize: 32,
+    fontSize: 28,
     color: colors.white,
   },
-  avatarEditButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primaryDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.surface,
+  changePhotoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  formContainer: {
+  changePhotoText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    color: colors.primary,
+  },
+  form: {
     gap: 20,
+    marginBottom: 24,
   },
-  inputContainer: {
+  formGroup: {
     gap: 8,
   },
-  inputLabel: {
-    fontFamily: fonts.bodySemiBold,
+  label: {
+    fontFamily: fonts.headingSemiBold,
     fontSize: 14,
     color: colors.ink,
   },
-  textInput: {
+  input: {
     fontFamily: fonts.body,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.ink,
     backgroundColor: colors.surface,
+    borderRadius: radius.button,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.card,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  textInputFocused: {
-    borderColor: colors.primary,
-    backgroundColor: colors.white,
-  },
-  textInputMultiline: {
+  bioInput: {
+    paddingTop: 12,
+    textAlignVertical: "top",
     height: 100,
-    paddingTop: 14,
   },
-  selectInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  charCount: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: colors.inkSoft,
+    textAlign: "right",
+    marginTop: 4,
+  },
+  infoBox: {
+    flexDirection: "row",
+    gap: 12,
+    backgroundColor: "#F0F7FF",
+    borderRadius: radius.button,
+    padding: 12,
+    marginTop: 8,
+  },
+  infoTitle: {
+    fontFamily: fonts.headingSemiBold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  infoText: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.inkSoft,
+    marginTop: 2,
+  },
+  actions: {
+    gap: 12,
+  },
+  button: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: radius.button,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.card,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
   },
-  selectInputText: {
-    fontFamily: fonts.body,
-    fontSize: 16,
+  cancelButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 15,
     color: colors.ink,
-  },
-  footer: {
-    padding: 20,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   saveButton: {
     backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   saveButtonText: {
-    fontFamily: fonts.headingSemiBold,
-    fontSize: 16,
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 15,
     color: colors.white,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
 });

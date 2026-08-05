@@ -15,8 +15,8 @@ export default function ProfilScreen() {
           <View style={styles.avatarWrap}>
             <Text style={styles.avatarText}>KT</Text>
           </View>
-          <Text style={styles.name}>Kader Touré</Text>
-          <Text style={styles.bio}>Futur ingénieur 🎓</Text>
+          <Text style={styles.name}> Bourier</Text>
+          <Text style={styles.bio}>Futur ingénieur </Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
